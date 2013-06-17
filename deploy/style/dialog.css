@@ -1,0 +1,29 @@
+@CHARSET "UTF-8";
+.dialog-class {
+	position:absolute;
+	width:400px;
+	height:400px;
+	border-style:solid;
+	border-color:#000;
+	display:block;
+}
+
+.btn-class {
+	width:100px;
+	height:30px;
+	background-color:#CCC;
+	position:fixed;
+	top:200px;
+	left:10px;
+}
+
+.msg-class {
+	display:inline;
+}
+.member-class {
+	display:inline;
+}
+
+.input-text-class {
+	vertical-align: middle;
+}
