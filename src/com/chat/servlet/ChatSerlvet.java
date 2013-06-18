@@ -40,8 +40,6 @@ public class ChatSerlvet extends WebSocketServlet {
 
 	private static SpyMemcachedManager manager = null;
 
-	private static List<String> randNameList = new ArrayList<String>();
-
 	private final String HEADER = "<===header===>";
 
 	private final String BODY = "<===body===>";
@@ -145,11 +143,16 @@ public class ChatSerlvet extends WebSocketServlet {
 			System.out.println(username + ":" + domain);
 			//用户列表同步各个服务器的
 			List<String> memberList = null;
+			List<String> randNameList = (List<String>) manager.get(domain + "RANDNAMELIST");
+			if(randNameList == null) {
+				randNameList = new ArrayList<String>();
+			}
 			//随机名字
 			if (username.equals("NULL")) {
 				username = "网站访客" + (randNameList.size() + 1);
 				randNameList.add(username);
 			}
+			manager.set(domain + "RANDNAMELIST", randNameList, 3000);
 			Member member = new Member();
 			member.setUsername(username);
 			member.setClientInbound(this);

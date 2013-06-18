@@ -8,6 +8,7 @@ var name = '';
 var chatKey = '';
 var username = "";
 var domain = "";
+var ipaddre = "";
 $(document)
 		.ready(
 				function() {
@@ -20,8 +21,9 @@ $(document)
 							type:'get',
 							url:'/web/route',
 							dataType:'text',
-							success:function(event){
-								//alert(event);
+							success:function(data){
+                                ipaddre = "ws://" + data + "/web/chat";
+                                alert(ipaddre);
 							},error : function(){
 								alert('异常');
 							}
@@ -83,7 +85,7 @@ $(document)
 
 function initWebSocket() {
 	//ws = new WebSocket("ws://localhost:8080/web/chat");
-	ws = new WebSocket("ws://192.168.1.230:8080/web/chat");
+	ws = new WebSocket(ipaddre);
 	$("#msg").text("建立连接中");
 	ws.onopen = function() {
 		var tip = "请输入您的名字";
