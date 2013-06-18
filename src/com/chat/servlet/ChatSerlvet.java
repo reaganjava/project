@@ -40,8 +40,6 @@ public class ChatSerlvet extends WebSocketServlet {
 
 	private static SpyMemcachedManager manager = null;
 
-	private static List<String> randNameList = new ArrayList<String>();
-
 	private final String HEADER = "<===header===>";
 
 	private final String BODY = "<===body===>";
@@ -145,11 +143,16 @@ public class ChatSerlvet extends WebSocketServlet {
 			System.out.println(username + ":" + domain);
 			//用户列表同步各个服务器的
 			List<String> memberList = null;
+			List<String> randNameList = (List<String>) manager.get(domain + "RANDNAMELIST");
+			if(randNameList == null) {
+				randNameList = new ArrayList<String>();
+			}
 			//随机名字
 			if (username.equals("NULL")) {
 				username = "网站访客" + (randNameList.size() + 1);
 				randNameList.add(username);
 			}
+			manager.set(domain + "RANDNAMELIST", randNameList, 3000);
 			Member member = new Member();
 			member.setUsername(username);
 			member.setClientInbound(this);
@@ -206,7 +209,7 @@ public class ChatSerlvet extends WebSocketServlet {
 			msg.setContent(content);
 			msg.setDateFormat(dateFormat);
 			//私有对话中间缓存队列
-			Queue<Message> privateMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGPRIVATE);
+			LinkedList<Message> privateMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGPRIVATE);
 			if(privateMsgQueue == null) {
 				privateMsgQueue = new LinkedList<Message>();
 			}
@@ -238,7 +241,7 @@ public class ChatSerlvet extends WebSocketServlet {
 			msg.setFormMember(formMemberName);
 			msg.setContent(content);
 			msg.setDateFormat(dateFormat);
-			Queue<Message> broadMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGBRODACAST);
+			LinkedList<Message> broadMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGBRODACAST);
 			if(broadMsgQueue == null) {
 				broadMsgQueue = new LinkedList<Message>();
 			}
@@ -286,10 +289,10 @@ public class ChatSerlvet extends WebSocketServlet {
 			while(true) {
 				for(String domain : domainList) {
 						//读出私有消息
-						Queue<Message> privateMsgQueue = (Queue<Message>) manager.get(domain + ChatType.MSGPRIVATE);
+						LinkedList<Message> privateMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGPRIVATE);
 						if(privateMsgQueue != null) {
 							for(int i = 0; i < privateMsgQueue.size(); i++) {
-								Message msg = privateMsgQueue.poll();
+								Message msg = privateMsgQueue.getLast();
 								Map<String, Member> onlineMemberMap = domainMemberListMap.get(domain);
 								for(Member member : onlineMemberMap.values()) {
 									//接收人匹配时发送
@@ -307,10 +310,11 @@ public class ChatSerlvet extends WebSocketServlet {
 							manager.set(domain + ChatType.MSGPRIVATE, privateMsgQueue, 3000);
 						}
 						//读出广播消息
-						Queue<Message> broadMsgQueue = (Queue<Message>) manager.get(domain + ChatType.MSGBRODACAST);
+						LinkedList<Message> broadMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGBRODACAST);
 						if(broadMsgQueue != null) {
+							System.out.println(broadMsgQueue);
 							for(int i = 0; i < broadMsgQueue.size(); i++) {
-								Message msg = broadMsgQueue.poll();
+								Message msg = broadMsgQueue.getLast();
 								Map<String, Member> onlineMemberMap = domainMemberListMap.get(domain);
 								for(Member member : onlineMemberMap.values()) {
 									//接受人不为自己时发送
@@ -328,6 +332,7 @@ public class ChatSerlvet extends WebSocketServlet {
 						}
 					}
 					checkMember(domain);	
+					updateMemberList(domain);
 				}
 				
 				try {
@@ -353,7 +358,7 @@ public class ChatSerlvet extends WebSocketServlet {
 			manager.set(domain, memberList.size(), 3000);
 			checkMemberList.clear();
 			//更新用户列表
-			updateMemberList(domain);
+			
 		}
 	}
 	
@@ -362,7 +367,7 @@ public class ChatSerlvet extends WebSocketServlet {
 		List<String> memberList = null;
 		String memberListInfo = "";
 		memberList = (List<String>) manager.get(domain + "MEMBERLIST");
-			
+		//System.out.println(memberList);
 		//组织用户列表数据
 		for (String memberName : memberList) {
 			memberListInfo += "<option value=\"" + memberName

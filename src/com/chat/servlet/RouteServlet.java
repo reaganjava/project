@@ -3,10 +3,13 @@ package com.chat.servlet;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -26,6 +29,8 @@ public class RouteServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	
 	private static SpyMemcachedManager manager = null;
+	
+	private static List<String> serverKey = new CopyOnWriteArrayList<String>();
 
 	/**
 	 * @see HttpServlet#HttpServlet()
@@ -35,7 +40,7 @@ public class RouteServlet extends HttpServlet {
 		try {
 			String[][] servs = new String[][] { 
 			   { "localhost", "11211" },
-			// {"localhost", "11212"}
+			   //{"localhost", "11212"}
 			};
 			List<SpyMemcachedServer> servers = new ArrayList<SpyMemcachedServer>();
 			for (int i = 0; i < servs.length; i++) {
@@ -46,6 +51,20 @@ public class RouteServlet extends HttpServlet {
 			}
 			manager = new SpyMemcachedManager(servers);
 			manager.connect();
+			Properties prop = new Properties();
+			InputStream in = getClass().getResourceAsStream(
+					"/config/server.properties");
+			prop.load(in);
+			Set<Object> keyValue = prop.keySet();
+			Map<String, Integer> serverMap = new HashMap<String, Integer>();
+			for (Iterator<Object> it = keyValue.iterator(); it.hasNext();) {
+				String key = (String) it.next();
+				String value = prop.getProperty(key);
+				serverKey.add(value);
+				serverMap.put(value, 0);
+			}
+			System.out.println("server size:" + serverMap.size());
+			manager.set("WEBSOCKETLIST", serverMap, 3000);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -57,19 +76,24 @@ public class RouteServlet extends HttpServlet {
 	 */
 	protected void doGet(HttpServletRequest request,
 			HttpServletResponse response) throws ServletException, IOException {
-		Properties prop = new Properties();
-		InputStream in = getClass().getResourceAsStream(
-				"/config/server.properties");
-		prop.load(in);
-		Set keyValue = prop.keySet();
-		for (Iterator it = keyValue.iterator(); it.hasNext();) {
-			String key = (String) it.next();
-			String value = prop.getProperty(key);
-			String temp = (String) manager.get("TEMP");
-			if(temp != null) {
-				if(value.equals("temp"));
+		Map<String, Integer> serverMap = (Map<String, Integer>) manager.get("WEBSOCKETLIST");
+		String serverIp = serverKey.get(0);
+		int serverCount = serverMap.get(serverIp);
+		for(int i = 0; i < serverKey.size(); i++) {
+			String key = serverKey.get(i);
+			int c = serverMap.get(key);
+			if(serverCount > c) {
+				serverCount = c;
+				serverIp = key;
 			}
 		}
+		serverMap.put(serverIp, serverCount + 1);
+		manager.set("WEBSOCKETLIST", serverMap, 3000);
+		System.out.println(serverIp + ":" + serverCount);
+		response.setContentType("html/text");
+		response.getWriter().println(serverIp);
+		response.getWriter().flush();
+		response.getWriter().close();
 	}
 
 	/**
