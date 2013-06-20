@@ -10,6 +10,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -128,6 +129,10 @@ public class ChatSerlvet extends WebSocketServlet {
 				keepAlive(requestData[1]);
 				break;
 			}
+			case "FEEDBACK" : {
+				System.out.println("MSGSUCCESS");
+				feedback(requestData[1]);
+			}
 			case "CLOSE": {
 				System.out.println("CLOSE");
 				close(requestData[1]);
@@ -188,6 +193,19 @@ public class ChatSerlvet extends WebSocketServlet {
 				checkMemberList.offer(member);
 			}
 		}
+		
+		private void feedback(String body) {
+			System.out.println(body);
+			String[] feedData = body.split(BODY);
+			String domain = feedData[0];
+			String msgId = feedData[1];
+			String username = feedData[2];
+			Map<String, Member> onlineMemberMap = domainMemberListMap.get(domain);
+			if(onlineMemberMap != null) {
+				onlineMemberMap.get(username).getMessageMap().get(msgId).setStatus(2);
+			}
+			domainMemberListMap.put(domain, onlineMemberMap);
+		}
 
 		private void privateChat(String body) {
 			System.out.println(body);
@@ -198,8 +216,11 @@ public class ChatSerlvet extends WebSocketServlet {
 			String message = privateData[3];
 			SimpleDateFormat format = new SimpleDateFormat("hh:mm:ss");
 			String dateFormat = format.format(new Date());
-			String content = "MSGPRIVATE" + RESPONSE + formMemberName + " " + dateFormat + " 说:" + message;
+			String msgId = UUID.randomUUID().toString();
+			String content = "MSGPRIVATE" + RESPONSE + msgId + BODY + formMemberName + " " + dateFormat + " 说:" + message;
 			Message msg = new Message();
+			
+			msg.setMsgId(msgId);
 			//设置对话为私有类型
 			msg.setType(ChatType.MSGPRIVATE);
 			msg.setDomain(domain);
@@ -208,6 +229,7 @@ public class ChatSerlvet extends WebSocketServlet {
 			msg.setToMember(toMemberName);
 			msg.setContent(content);
 			msg.setDateFormat(dateFormat);
+			msg.setStatus(0);
 			//私有对话中间缓存队列
 			LinkedList<Message> privateMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGPRIVATE);
 			if(privateMsgQueue == null) {
@@ -233,8 +255,10 @@ public class ChatSerlvet extends WebSocketServlet {
 			String message = broadData[2];
 			SimpleDateFormat format = new SimpleDateFormat("hh:mm:ss");
 			String dateFormat = format.format(new Date());
-			String content = "MSGBRODACAST" + RESPONSE + formMemberName + " " + dateFormat + " 说:" + message;
+			String msgId = UUID.randomUUID().toString();
+			String content = "MSGBRODACAST" + RESPONSE + msgId + BODY + formMemberName + " " + dateFormat + " 说:" + message;
 			Message msg = new Message();
+			msg.setMsgId(msgId);
 			//公有对话类型
 			msg.setType(ChatType.MSGBRODACAST);
 			msg.setDomain(domain);
@@ -288,51 +312,65 @@ public class ChatSerlvet extends WebSocketServlet {
 		public void run() {
 			while(true) {
 				for(String domain : domainList) {
-						//读出私有消息
-						LinkedList<Message> privateMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGPRIVATE);
-						if(privateMsgQueue != null) {
-							for(int i = 0; i < privateMsgQueue.size(); i++) {
-								Message msg = privateMsgQueue.getLast();
-								Map<String, Member> onlineMemberMap = domainMemberListMap.get(domain);
-								for(Member member : onlineMemberMap.values()) {
-									//接收人匹配时发送
-									if(msg.getToMember().equals(member.getUsername())) {
-										try {
-											((ChatMessageInbound) member.getClientInbound())
-													.sendClientMessage(msg.getContent());
-										} catch (IOException e) {
-											e.printStackTrace();
-											checkMemberList.offer(member);
-										}
+					Map<String, Member> onlineMemberMap = domainMemberListMap.get(domain);
+					//消息发送还有优化的地方是否可以将私有消息和公有消息放到一个队列里面通过消息类型来区分
+					//读出私有消息
+					LinkedList<Message> privateMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGPRIVATE);
+					if(privateMsgQueue != null) {
+						for(int i = 0; i < privateMsgQueue.size(); i++) {
+							Message msg = privateMsgQueue.getLast();
+							
+							for(Member member : onlineMemberMap.values()) {
+								//接收人匹配时发送
+								if(msg.getToMember().equals(member.getUsername())) {
+									if(member.getMessageMap().get(msg.getMsgId()) == null) {
+										msg.setStatus(1);
+										member.getMessageMap().put(msg.getMsgId(), msg);
+										onlineMemberMap.put(member.getUsername(), member);
 									}
 								}
 							}
-							manager.set(domain + ChatType.MSGPRIVATE, privateMsgQueue, 3000);
 						}
-						//读出广播消息
-						LinkedList<Message> broadMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGBRODACAST);
-						if(broadMsgQueue != null) {
-							System.out.println(broadMsgQueue);
-							for(int i = 0; i < broadMsgQueue.size(); i++) {
-								Message msg = broadMsgQueue.getLast();
-								Map<String, Member> onlineMemberMap = domainMemberListMap.get(domain);
-								for(Member member : onlineMemberMap.values()) {
-									//接受人不为自己时发送
-									if(!msg.getFormMember().equals(member.getUsername())) {
-										try {
-											((ChatMessageInbound) member.getClientInbound())
-													.sendClientMessage(msg.getContent());
-										} catch (IOException e) {
-											e.printStackTrace();
-											checkMemberList.offer(member);
-										}
+						manager.set(domain + ChatType.MSGPRIVATE, privateMsgQueue, 3000);
+					}
+					//读出广播消息
+					LinkedList<Message> broadMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGBRODACAST);
+					if(broadMsgQueue != null) {
+						for(int i = 0; i < broadMsgQueue.size(); i++) {
+							Message msg = broadMsgQueue.getLast();
+							for(Member member : onlineMemberMap.values()) {
+								//接受人不为自己时发送
+								if(!msg.getFormMember().equals(member.getUsername())) {
+								
+									if(member.getMessageMap().get(msg.getMsgId()) == null) {
+										//消息放入用户的消息发送列表
+										member.getMessageMap().put(msg.getMsgId(), msg);
+										onlineMemberMap.put(member.getUsername(), member);
 									}
 								}
-							manager.set(domain + ChatType.MSGBRODACAST, broadMsgQueue, 3000);
+							}
+						manager.set(domain + ChatType.MSGBRODACAST, broadMsgQueue, 3000);
 						}
 					}
+					for(String username : onlineMemberMap.keySet()) {
+						for(String msgId : onlineMemberMap.get(username).getMessageMap().keySet()) {
+							if(onlineMemberMap.get(username).getMessageMap().get(msgId).getStatus() == 0) {
+								String msg = onlineMemberMap.get(username).getMessageMap().get(msgId).getContent();
+								try {
+									System.out.println(msg);
+									((ChatMessageInbound) onlineMemberMap.get(username).getClientInbound()).sendClientMessage(msg);
+									onlineMemberMap.get(username).getMessageMap().get(msgId).setStatus(1);
+								} catch (IOException e) {
+									e.printStackTrace();
+									checkMemberList.offer(onlineMemberMap.get(username));
+								}
+							}
+						}
+					}
+				    //用户列表检测还有BUG
 					checkMember(domain);	
 					updateMemberList(domain);
+					domainMemberListMap.put(domain, onlineMemberMap);
 				}
 				
 				try {

@@ -4,6 +4,8 @@ import java.io.Serializable;
 
 public class Message implements Serializable {
 	
+	private String msgId;
+	
 	private ChatType type;
 	
 	private String formMember;
@@ -15,6 +17,16 @@ public class Message implements Serializable {
 	private String domain;
 	
 	private String dateFormat;
+	//0初始，1发送，2已读
+	private int status;
+
+	public String getMsgId() {
+		return msgId;
+	}
+
+	public void setMsgId(String msgId) {
+		this.msgId = msgId;
+	}
 
 	public ChatType getType() {
 		return type;
@@ -62,6 +74,14 @@ public class Message implements Serializable {
 
 	public void setDateFormat(String dateFormat) {
 		this.dateFormat = dateFormat;
+	}
+
+	public int getStatus() {
+		return status;
+	}
+
+	public void setStatus(int status) {
+		this.status = status;
 	}
 	
 }

@@ -110,8 +110,14 @@ function initWebSocket() {
 		}
 		if (values[0] == 'MSGBRODACAST') {
 			var value = $("#viewsMsg").text();
-			value += values[1] + "\n";
+			alert(values[1]);
+			var msgData = values[1].split(BODY);
+			var msgId = msgData[0];
+			value += msgData[1] + "\n";
 			$("#viewsMsg").text(value);
+			var feedback = "FEEDBACK" + HEADER + domain + BODY + msgId + BODY + name;
+			alert(feedback);
+			sendMsg(feedback);
 		}
 		if (values[0] == 'MEMBERLIST') {
 			value = values[1];
@@ -125,8 +131,12 @@ function initWebSocket() {
 		}
 		if (values[0] == 'MSGPRIVATE') {
 			var value = $("#privateMsg").text();
-			value += values[1] + "\n";
+			var msgData = values[1].split(BODY);
+			var msgId = msgData[0];
+			value += msgData[1] + "\n";
 			$("#privateMsg").text(value);
+			var feedback = "FEEDBACK" + HEADER + domain + BODY + msgId + BODY + name;
+			sendMsg(feedback);
 		}
 	};
 	
