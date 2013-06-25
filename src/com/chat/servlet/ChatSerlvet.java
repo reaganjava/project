@@ -67,7 +67,7 @@ public class ChatSerlvet extends WebSocketServlet {
 			}
 			Properties prop = new Properties();
 			InputStream in = getClass().getResourceAsStream(
-					"/config/server.properties");
+					"/config/sys.properties");
 			prop.load(in);
 			timeout = Long.parseLong(prop.getProperty("message.timeout"));
 			manager = new SpyMemcachedManager(servers);
@@ -381,7 +381,6 @@ public class ChatSerlvet extends WebSocketServlet {
 					checkMember(domain);	
 					//更新用户列表	
 					updateMemberList(domain);
-					
 					domainMemberListMap.put(domain, onlineMemberMap);
 					//清除过期消息
 					clearMessage(domain);
