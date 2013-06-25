@@ -19,6 +19,8 @@ public class Message implements Serializable {
 	private String dateFormat;
 	//0初始，1发送，2已读
 	private int status;
+	
+	private long dateline;
 
 	public String getMsgId() {
 		return msgId;
@@ -82,6 +84,14 @@ public class Message implements Serializable {
 
 	public void setStatus(int status) {
 		this.status = status;
+	}
+
+	public long getDateline() {
+		return dateline;
+	}
+
+	public void setDateline(long dateline) {
+		this.dateline = dateline;
 	}
 	
 }

@@ -254,7 +254,8 @@ public class ChatSerlvet extends WebSocketServlet {
 			String formMemberName = broadData[1];
 			String message = broadData[2];
 			SimpleDateFormat format = new SimpleDateFormat("hh:mm:ss");
-			String dateFormat = format.format(new Date());
+			long dateline = System.currentTimeMillis();
+			String dateFormat = format.format(new Date(dateline));
 			String msgId = UUID.randomUUID().toString();
 			String content = "MSGBRODACAST" + RESPONSE + msgId + BODY + formMemberName + " " + dateFormat + " 说:" + message;
 			Message msg = new Message();
@@ -265,6 +266,7 @@ public class ChatSerlvet extends WebSocketServlet {
 			msg.setFormMember(formMemberName);
 			msg.setContent(content);
 			msg.setDateFormat(dateFormat);
+			msg.setDateline(dateline);
 			LinkedList<Message> broadMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGBRODACAST);
 			if(broadMsgQueue == null) {
 				broadMsgQueue = new LinkedList<Message>();
@@ -324,7 +326,6 @@ public class ChatSerlvet extends WebSocketServlet {
 								//接收人匹配时发送
 								if(msg.getToMember().equals(member.getUsername())) {
 									if(member.getMessageMap().get(msg.getMsgId()) == null) {
-										msg.setStatus(1);
 										member.getMessageMap().put(msg.getMsgId(), msg);
 										onlineMemberMap.put(member.getUsername(), member);
 									}
@@ -371,6 +372,7 @@ public class ChatSerlvet extends WebSocketServlet {
 					checkMember(domain);	
 					updateMemberList(domain);
 					domainMemberListMap.put(domain, onlineMemberMap);
+					clearMessage(domain);
 				}
 				
 				try {
@@ -379,6 +381,25 @@ public class ChatSerlvet extends WebSocketServlet {
 					e.printStackTrace();
 				}
 			}
+		}
+	}
+	
+	private void clearMessage(String domain) {
+		//读出广播消息
+		LinkedList<Message> broadMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGBRODACAST);
+			if(broadMsgQueue != null) {
+			List<Integer> indexs = new ArrayList<Integer>();
+			for(int i = 0; i < broadMsgQueue.size(); i++) {
+				Message msg = broadMsgQueue.getFirst();
+				long currentTime = System.currentTimeMillis();
+				if((currentTime - msg.getDateline()) > 900000) {
+					indexs.add(i);
+				}
+			}
+			for(int index : indexs) {
+				broadMsgQueue.remove(index);
+			}
+			manager.set(domain + ChatType.MSGBRODACAST, broadMsgQueue, 3000);
 		}
 	}
 	

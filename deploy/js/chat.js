@@ -110,13 +110,11 @@ function initWebSocket() {
 		}
 		if (values[0] == 'MSGBRODACAST') {
 			var value = $("#viewsMsg").text();
-			alert(values[1]);
 			var msgData = values[1].split(BODY);
 			var msgId = msgData[0];
 			value += msgData[1] + "\n";
 			$("#viewsMsg").text(value);
 			var feedback = "FEEDBACK" + HEADER + domain + BODY + msgId + BODY + name;
-			alert(feedback);
 			sendMsg(feedback);
 		}
 		if (values[0] == 'MEMBERLIST') {
