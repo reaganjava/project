@@ -1,6 +1,7 @@
 package com.chat.servlet;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.text.SimpleDateFormat;
@@ -9,6 +10,7 @@ import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,6 +48,8 @@ public class ChatSerlvet extends WebSocketServlet {
 	private final String BODY = "<===body===>";
 
 	private final String RESPONSE = "<===response===>";
+	
+	private static long timeout = 0;
 
 	public ChatSerlvet() {
 		super();
@@ -61,6 +65,11 @@ public class ChatSerlvet extends WebSocketServlet {
 				server.setPort(Integer.parseInt(servs[i][1]));
 				servers.add(server);
 			}
+			Properties prop = new Properties();
+			InputStream in = getClass().getResourceAsStream(
+					"/config/server.properties");
+			prop.load(in);
+			timeout = Long.parseLong(prop.getProperty("message.timeout"));
 			manager = new SpyMemcachedManager(servers);
 			manager.connect();
 		} catch (Exception e) {
@@ -320,7 +329,7 @@ public class ChatSerlvet extends WebSocketServlet {
 					LinkedList<Message> privateMsgQueue = (LinkedList<Message>) manager.get(domain + ChatType.MSGPRIVATE);
 					if(privateMsgQueue != null) {
 						for(int i = 0; i < privateMsgQueue.size(); i++) {
-							Message msg = privateMsgQueue.getLast();
+							Message msg = privateMsgQueue.poll();
 							
 							for(Member member : onlineMemberMap.values()) {
 								//接收人匹配时发送
@@ -370,8 +379,11 @@ public class ChatSerlvet extends WebSocketServlet {
 					}
 				    //用户列表检测还有BUG
 					checkMember(domain);	
+					//更新用户列表	
 					updateMemberList(domain);
+					
 					domainMemberListMap.put(domain, onlineMemberMap);
+					//清除过期消息
 					clearMessage(domain);
 				}
 				
@@ -392,7 +404,7 @@ public class ChatSerlvet extends WebSocketServlet {
 			for(int i = 0; i < broadMsgQueue.size(); i++) {
 				Message msg = broadMsgQueue.getFirst();
 				long currentTime = System.currentTimeMillis();
-				if((currentTime - msg.getDateline()) > 900000) {
+				if((currentTime - msg.getDateline()) > timeout) {
 					indexs.add(i);
 				}
 			}
@@ -416,8 +428,6 @@ public class ChatSerlvet extends WebSocketServlet {
 			manager.set(domain + "MEMBERLIST", memberList, 3000);
 			manager.set(domain, memberList.size(), 3000);
 			checkMemberList.clear();
-			//更新用户列表
-			
 		}
 	}
 	
