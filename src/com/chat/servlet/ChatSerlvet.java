@@ -24,8 +24,8 @@ import org.apache.catalina.websocket.StreamInbound;
 import org.apache.catalina.websocket.WebSocketServlet;
 import org.apache.catalina.websocket.WsOutbound;
 
-import com.chat.cached.SpyMemcachedManager;
-import com.chat.cached.SpyMemcachedServer;
+import com.cached.SpyMemcachedManager;
+import com.cached.SpyMemcachedServer;
 import com.chat.entity.ChatType;
 import com.chat.entity.Member;
 import com.chat.entity.Message;
